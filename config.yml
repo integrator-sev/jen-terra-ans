@@ -1,0 +1,51 @@
+---
+- name: Install env
+  hosts: all
+  become: yes
+
+  tasks:
+    - name: wait for ssh
+      wait_for:
+         port: 22
+         delay: 30
+
+    - name: Install Git
+      apt: name={{ item }} state=present update_cache=yes
+      with_items:
+        - git
+        - docker.io
+
+
+- name: Instal build env
+  hosts: MAVEN
+  remote_user: ubuntu
+  become: yes
+
+  tasks:
+    - name: wait for ssh
+      wait_for:
+        port: 22
+        delay: 30
+
+    - name: Install Maven
+      apt: name={{ item }} state=present
+      with_items:
+        - maven
+        - pass
+
+    - name: Recursively delete existing Directory /home/ubuntu/artifact
+      file:
+        path: /home/ubuntu/artifact
+        state: absent
+
+    - name: Create Directory /home/ubuntu/artifact
+      file:
+        path: /home/ubuntu/artifact
+        state: directory
+
+    - name: Git Clone
+      git:
+        repo: https://github.com/integrator-sev/boxfuse-origin.git
+        dest: /home/ubuntu/artifact
+        clone: yes
+

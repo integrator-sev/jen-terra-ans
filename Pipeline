@@ -1,0 +1,59 @@
+pipeline {
+    agent any
+    stages {
+        stage('Clone project') {
+            steps {
+                git 'https://github.com/integrator-sev/complex.git'
+            }
+        }
+        stage('Create AWS EC2') {
+            steps {
+
+                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'aws', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+  /*           sh 'terraform destroy -auto-approve'                 */
+               sh 'ssh-keygen -t rsa -f ssh-key -q -P "" |  0>&- | chmod 400 ssh-key'
+                sh 'terraform init && terraform apply -auto-approve'
+                }
+            }
+        }
+         stage('create inventory') {
+            steps {
+            sh 'chmod +x terra_to_ans.sh && /bin/bash terra_to_ans.sh'
+            }
+        }
+        stage('create environment') {
+            steps {
+            sh 'sudo ansible-playbook config.yml  -i hosts'
+            }
+        }
+        stage('make image with artifact') {
+            environment {
+                    maven= sh (returnStdout: true, script: 'egrep -v ^"\$" hosts  |  head -n 2 | cut -f 1 -d " " | tail -n 1').trim()
+             }
+          steps {
+              sh 'ssh -o StrictHostKeyChecking=no -i ssh-key ubuntu@$maven  "sudo mvn clean package -f artifact/pom.xml; sudo cp artifact/target/*.war artifact/test.war; sudo docker build  -t integratorsev/mytomcat8:2 /home/ubuntu/artifact;"'
+
+             }
+        }
+        stage('push to docker hub') {
+            environment {
+                    maven= sh (returnStdout: true, script: 'egrep -v ^"\$" hosts  |  head -n 2 | cut -f 1 -d " " | tail -n 1 ').trim()
+             }
+          steps {
+            withCredentials([usernamePassword(credentialsId: 'ecdcd98d-39a1-4e47-928b-cb0138248058', passwordVariable: 'pass', usernameVariable: 'login')]) {
+             sh 'ssh -o StrictHostKeyChecking=no -i ssh-key ubuntu@$maven "sudo docker login -u $login -p $pass; sudo docker push integratorsev/mytomcat8:2;"'
+              }
+          }
+        }
+         stage('pull from docker hub') {
+            environment {
+                    tomcat= sh (returnStdout: true, script: 'egrep -v ^"\$" hosts  |  head -n 2 | cut -f 1 -d " " | tail -n 1 ').trim()
+             }
+          steps {
+            withCredentials([usernamePassword(credentialsId: 'ecdcd98d-39a1-4e47-928b-cb0138248058', passwordVariable: 'pass', usernameVariable: 'login')]) {
+             sh 'ssh -o StrictHostKeyChecking=no -i ssh-key ubuntu@$tomcat "sudo docker run -d -p 8080:8080 integratorsev/mytomcat8:2;"'
+              }
+          }
+        }
+        }
+    }
