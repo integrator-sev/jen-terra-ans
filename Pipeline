@@ -47,7 +47,7 @@ pipeline {
         }
          stage('pull from docker hub') {
             environment {
-                    tomcat= sh (returnStdout: true, script: 'egrep -v ^"\$" hosts  |  head -n 2 | cut -f 1 -d " " | tail -n 1 ').trim()
+                    tomcat= sh (returnStdout: true, script: 'egrep -v ^"\$" hosts  |  head -n 4 | cut -f 1 -d " " | tail -n 1 ').trim()
              }
           steps {
             withCredentials([usernamePassword(credentialsId: 'ecdcd98d-39a1-4e47-928b-cb0138248058', passwordVariable: 'pass', usernameVariable: 'login')]) {
