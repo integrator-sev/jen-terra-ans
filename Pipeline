@@ -10,7 +10,6 @@ pipeline {
             steps {
 
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'aws', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-  /*           sh 'terraform destroy -auto-approve'                 */
                sh 'ssh-keygen -t rsa -f ssh-key -q -P "" |  0>&- | chmod 400 ssh-key'
                 sh 'terraform init && terraform apply -auto-approve'
                 }
